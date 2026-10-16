@@ -3,104 +3,140 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSC Quick Document Upload</title>
+  <title>CSC Document Upload</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; padding: 20px; text-align: center; color: #1e293b; margin: 0; }
-    .card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
-    h2 { margin: 0 0 4px 0; font-size: 18px; color: #1e40af; }
-    p { font-size: 12px; color: #64748b; margin-top: 0; }
-    .input-box { width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; text-align: center; }
-    .upload-area { border: 2px dashed #3b82f6; background: #eff6ff; padding: 24px 12px; border-radius: 8px; margin-bottom: 16px; cursor: pointer; }
-    .btn { background: #2563eb; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; font-size: 15px; cursor: pointer; }
-    .btn:disabled { background: #94a3b8; }
-    #status { margin-top: 14px; font-size: 13px; font-weight: bold; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #f1f5f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
+    .card { background: #ffffff; border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); text-align: center; }
+    h2 { font-size: 18px; color: #1e3a8a; margin-bottom: 4px; }
+    p { font-size: 12px; color: #64748b; margin-bottom: 16px; }
+    input[type="text"] { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; margin-bottom: 12px; outline: none; }
+    .upload-zone { border: 2px dashed #3b82f6; border-radius: 10px; padding: 24px 12px; background: #eff6ff; cursor: pointer; margin-bottom: 12px; }
+    .upload-zone span { display: block; font-size: 13px; color: #1e40af; font-weight: 600; }
+    .btn-send { width: 100%; padding: 12px; background: #2563eb; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .btn-send:disabled { background: #94a3b8; cursor: not-allowed; }
+    #statusMsg { font-size: 12px; margin-top: 12px; font-weight: 600; min-height: 18px; }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <h2>CSC Document Upload</h2>
-  <p>Apna Document select karke Computer par bhejein</p>
+  <div class="card">
+    <h2>CSC Document Upload</h2>
+    <p>Apna Document select karke Computer par bhejein</p>
 
-  <input type="text" id="custName" class="input-box" placeholder="Apna Naam Daalein (Optional)">
+    <input type="text" id="custName" placeholder="Apna Naam Daalein (Optional)">
 
-  <div class="upload-area" onclick="document.getElementById('fileInp').click()">
-    <div style="font-size: 32px;">📷</div>
-    <div style="font-size: 13px; font-weight: bold; color: #1d4ed8; margin-top: 6px;">Camera ya Gallery se Photo Chunein</div>
-    <input type="file" id="fileInp" accept="image/*,application/pdf" multiple style="display: none;">
+    <div class="upload-zone" id="pickZone">
+      <div style="font-size: 32px; margin-bottom: 4px;">📷</div>
+      <span>Camera ya Gallery se Photo Chunein</span>
+      <input type="file" id="fileInp" multiple accept="image/*,application/pdf" style="display:none;">
+    </div>
+
+    <p id="fileCount" style="margin-bottom: 12px; color: #0f172a; font-weight: 600;">Koi document nahi chuna gaya</p>
+
+    <button id="sendBtn" class="btn-send" disabled>Send to Computer</button>
+    <div id="statusMsg"></div>
   </div>
-  <div id="fileCount" style="font-size: 12px; color: #475569; margin-bottom: 12px;"></div>
 
-  <button id="sendBtn" class="btn" disabled>Send to Computer</button>
-  <div id="status"></div>
-</div>
+  <script>
+    const FIREBASE_DB_URL = "https://csc-counter-hub-default-rtdb.firebaseio.com";
+    const pickZone = document.getElementById("pickZone");
+    const fileInp = document.getElementById("fileInp");
+    const fileCount = document.getElementById("fileCount");
+    const sendBtn = document.getElementById("sendBtn");
+    const statusMsg = document.getElementById("statusMsg");
+    const custName = document.getElementById("custName");
 
-<script>
-  const FIREBASE_DB_URL = "https://csc-counter-hub-default-rtdb.firebaseio.com";
+    let selectedFiles = [];
 
-  const fileInp = document.getElementById('fileInp');
-  const sendBtn = document.getElementById('sendBtn');
-  const fileCount = document.getElementById('fileCount');
-  const statusDiv = document.getElementById('status');
-  const custName = document.getElementById('custName');
+    pickZone.addEventListener("click", () => fileInp.click());
 
-  fileInp.addEventListener('change', () => {
-    if (fileInp.files.length > 0) {
-      fileCount.innerText = `${fileInp.files.length} document chuna gaya`;
-      sendBtn.disabled = false;
+    fileInp.addEventListener("change", (e) => {
+      selectedFiles = Array.from(e.target.files);
+      if (selectedFiles.length > 0) {
+        fileCount.innerText = `${selectedFiles.length} document chuna gaya`;
+        sendBtn.disabled = false;
+      } else {
+        fileCount.innerText = "Koi document nahi chuna gaya";
+        sendBtn.disabled = true;
+      }
+    });
+
+    function compressImage(file) {
+      return new Promise((resolve) => {
+        if (file.type === "application/pdf") {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          return reader.readAsDataURL(file);
+        }
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          img.src = e.target.result;
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const maxDim = 1000;
+            let w = img.width, h = img.height;
+            if (w > h && w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; }
+            else if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; }
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL("image/jpeg", 0.65));
+          };
+        };
+        reader.readAsDataURL(file);
+      });
     }
-  });
 
-  sendBtn.addEventListener('click', async () => {
-    const files = Array.from(fileInp.files);
-    if (files.length === 0) return;
+    sendBtn.addEventListener("click", async () => {
+      if (selectedFiles.length === 0) return;
 
-    sendBtn.disabled = true;
-    statusDiv.innerText = "⏳ Uploading to Counter...";
-    statusDiv.style.color = "#2563eb";
-
-    const name = custName.value.trim() || "Customer";
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const base64 = await fileToBase64(file);
-      
-      const payload = {
-        customerName: name,
-        fileName: file.name,
-        fileType: file.type || "image/jpeg",
-        base64: base64,
-        timestamp: Date.now()
-      };
+      sendBtn.disabled = true;
+      const total = selectedFiles.length;
+      statusMsg.style.color = "#2563eb";
 
       try {
-        await fetch(`${FIREBASE_DB_URL}/uploads.json`, {
-          method: "POST",
+        const payloadBatch = {};
+        const baseName = custName.value.trim();
+
+        for (let i = 0; i < total; i++) {
+          statusMsg.innerText = `Compressing ${i + 1}/${total}...`;
+          const file = selectedFiles[i];
+          const base64Data = await compressImage(file);
+          const key = "up_" + Date.now() + "_" + i;
+
+          payloadBatch[key] = {
+            fileName: baseName ? `${baseName}_${file.name}` : file.name,
+            fileType: file.type || "image/jpeg",
+            base64: base64Data,
+            time: Date.now()
+          };
+        }
+
+        statusMsg.innerText = `Sending ${total} files to Computer...`;
+
+        const res = await fetch(`${FIREBASE_DB_URL}/uploads.json`, {
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payloadBatch)
         });
+
+        if (res.ok) {
+          statusMsg.style.color = "#16a34a";
+          statusMsg.innerText = "✓ Sabhi Documents Computer par chale gaye!";
+          fileInp.value = "";
+          selectedFiles = [];
+          fileCount.innerText = "Koi document nahi chuna gaya";
+        } else {
+          throw new Error("Upload failed");
+        }
       } catch (err) {
-        statusDiv.innerText = "❌ Upload failed: " + err.message;
-        statusDiv.style.color = "#dc2626";
+        statusMsg.style.color = "#dc2626";
+        statusMsg.innerText = "Upload fail ho gaya. Dobara try karein.";
         sendBtn.disabled = false;
-        return;
       }
-    }
-
-    statusDiv.innerText = "✅ Kaamyab! Documents Computer par bhej diye gaye.";
-    statusDiv.style.color = "#16a34a";
-    fileInp.value = "";
-    fileCount.innerText = "";
-  });
-
-  function fileToBase64(file) {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.readAsDataURL(file);
     });
-  }
-</script>
-
+  </script>
 </body>
 </html>
